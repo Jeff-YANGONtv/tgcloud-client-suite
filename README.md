@@ -2,41 +2,44 @@
 
 This package combines a React + Vite Telegram Mini App with TGCloud Serverless modules. The Mini App has Dashboard, History and Loyalty Point tabs. In Telegram it requests data through authenticated Serverless endpoints; in a normal browser it shows clearly labelled demo data.
 
-## Local preview
+## Local checks
 
 Requires Node.js 20.19+ (or 22.12+) and npm, matching Vite 8 requirements.
 
 ```bash
-npm install
-npm run dev
+npm ci
 npm run build
 npm run lint
 ```
 
-## TGCloud setup
+## Bot workflows
+
+The message and callback handlers implement private-chat onboarding, pending-user review, admin authorization, campaign/channel management, daily post recording, report display/delivery and manual missing-post reminders. See [BOT_GUIDE.md](BOT_GUIDE.md) for commands and setup details.
+
+Bootstrap is secure by default: `tgcloud/lib/admin-config.js` contains an empty allowlist. Add the trusted administrator's numeric Telegram ID locally before the first deployment. Do not commit that ID to this public repository. The first person who messages the bot is never automatically promoted. Further approvals and status changes can be made by an approved admin through the bot.
+
+The report sender records successful delivery by client, campaign and Myanmar-local date. Re-sending a report skips dates already recorded as delivered. If Telegram accepted a message but saving its delivery marker failed, a later resend could duplicate that date; delivery is therefore retryable, not exactly-once.
+
+## TGCloud setup and deployment
 
 1. Enable Serverless for the bot in BotFather.
-2. Obtain the **Serverless CLI access token** from BotFather. This is separate from the Telegram Bot API token. Run `npx tgcloud login` locally and enter the CLI credential only in that terminal prompt. Never place either token in source code or chat.
-3. Run `npm run deploy`. It builds the Mini App and runs `tgcloud push` for the code and static files. Note the TGCloud app URL returned by the CLI and set it as the Mini App URL in BotFather.
-4. Review the pending schema changes reported by TGCloud. Only when they are correct, run `npx tgcloud migrate` to apply the database changes.
+2. Revoke and replace any Telegram Bot API token or TGCloud CLI token previously exposed in chat or elsewhere. Keep both credentials out of source code and chat.
+3. Obtain the TGCloud Serverless CLI access token from BotFather. It is separate from the Telegram Bot API token. Run `npx tgcloud login` locally and enter the CLI credential only in the terminal prompt.
+4. Configure the bootstrap administrator ID in `tgcloud/lib/admin-config.js` locally. Keep this change out of commits to the public repository.
+5. Link/pull the target bot with the TGCloud CLI, inspect `npx tgcloud status`, then review any reported schema changes. Apply a migration only after checking the generated change set.
+6. Run `npm run deploy` to build the Mini App and push the modules/static files. Set the returned app URL as the Mini App URL in BotFather, then test onboarding and admin commands with the configured administrator.
 
-This package has not logged in, pushed modules, applied a database migration or deployed anything. Review the migration before applying it.
+This repository has not logged in to a bot, linked or pulled a TGCloud app, pushed modules/static files, applied a migration, or deployed anything. The deployment workflow is intentionally left for a separate, confirmed step after coding and credential rotation.
 
-## Included data logic
+## Data and retention
 
-Campaign summaries, channel assignments, daily post links, delivery audit rows and 60-day loyalty-cycle records are represented in `tgcloud/schema.js`. A daily link is keyed by channel and Myanmar-local date; saving a replacement for that same day updates the link. The retention routine deletes only daily post-link rows after 30 days from campaign start and retains campaign summaries.
+Campaign summaries, channel assignments, daily post links, delivery audit rows and 60-day loyalty-cycle records are represented in `tgcloud/schema.js`. A daily link is keyed by channel and Myanmar-local date; saving a replacement for that same day updates the link. The retention routine deletes daily post-link rows after 30 days from campaign start while retaining campaign summaries.
 
 Points are calculated as `floor((used budget in the active 60-day cycle × 5%) / 1,000 Ks)`. Fractional points are rounded down. The first campaign start anchors the cycle. A new cycle is created after 60 days; prior-cycle points are not carried forward.
 
-## Important platform limitation
+## Reminder scheduling limitation
 
-The official TGCloud documentation reviewed for this package does not describe a cron or timer trigger. Expired post links are therefore swept on the next bot or Mini App endpoint request, not guaranteed to be deleted exactly at the 30-day instant. A separate scheduler is required for a daily 22:30 Myanmar Standard Time reminder and strict-time cleanup.
-
-## Not implemented yet
-
-The current package is a Mini App and database-logic foundation, not a complete production bot. Client onboarding approval, secure first-admin setup, campaign administration, `/tabname` report history, client report sending and unsent-day continuation, user listing, one-to-one/all-user broadcasts, and the scheduled reminder still need implementation. Deploy only after these authorization and admin flows are complete.
-
-If a Bot API token has ever been exposed publicly or in an untrusted chat, revoke it in BotFather and replace it. Never commit tokens or share them in chat.
+The official TGCloud documentation reviewed for this package does not describe a cron or timer trigger. `/remindnow` runs the missing-post check immediately when an admin invokes it; it is not a scheduled 22:30 reminder. A separate supported scheduler/service must invoke the bot or an endpoint at 22:30 Myanmar Standard Time. Expired post links are swept on the next dashboard/history/loyalty or bot report/post request, not guaranteed to be deleted exactly at the 30-day instant.
 
 ## Official platform references
 

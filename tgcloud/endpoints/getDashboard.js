@@ -9,7 +9,7 @@ export default async function (_input, ctx) {
   const today = myanmarDateKey();
   const todayDate = new Date(`${today}T00:00:00+06:30`);
   const active = await db.select().from(campaigns)
-    .where(and(eq(campaigns.clientId, user.id), lte(campaigns.startsAt, new Date()), gte(campaigns.endsAt, todayDate)))
+    .where(and(eq(campaigns.clientId, user.id), eq(campaigns.status, 'active'), lte(campaigns.startsAt, new Date()), gte(campaigns.endsAt, todayDate)))
     .all();
 
   const items = await Promise.all(active.map(async (campaign) => {
