@@ -1,3 +1,5 @@
+> **လက်ရှိအကောင်အထည်ဖော်မှုအခြေအနေ (2026-10-20):** ဤစာတမ်းအောက်ပါ command များသည် လိုချင်သော target workflow ကိုဖော်ပြထားခြင်းဖြစ်ပြီး လက်ရှိ code တွင် အလုပ်လုပ်နေပြီဟု မဆိုလိုပါ။ လက်ရှိ `tgcloud/handlers/message.js` သည် echo scaffold သာဖြစ်ပြီး user onboarding/approval, admin commands, campaign management, incremental report delivery နှင့် scheduled reminders များ မပြီးသေးပါ။ လုံခြုံသော first-admin provisioning နှင့် authorization မပြည့်စုံမချင်း production deploy မလုပ်ပါနှင့်။ လက်ရှိရှိသော Mini App endpoint များသည် admin က post record ထည့်ရန်သာပါပြီး admin provisioning route မပါဝင်ပါ။
+
 # Telegram Bot & Daily Post Record Guide
 
 ဤ Bot သည် Client များအား စီမံခန့်ခွဲခြင်း၊ ကြော်ငြာ Channel ပို့စ်များကို Tab အလိုက် ရက် ၃၀ စာ သိမ်းဆည်းခြင်းနှင့် Client များထံသို့ Report အပိုင်းလိုက် ပေးပို့ခြင်း (Incremental Delivery) အတွက် ပြည့်စုံစွာ ရေးသားထားသော စနစ်ဖြစ်ပါသည်။
