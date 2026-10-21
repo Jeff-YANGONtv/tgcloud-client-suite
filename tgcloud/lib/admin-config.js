@@ -1,4 +1,4 @@
-// Add trusted Telegram numeric user IDs before deployment. Keep this list empty in
-// the public repository; an empty list intentionally prevents automatic admin
-// promotion. Never make the first person who messages the bot an admin.
-export const BOOTSTRAP_ADMIN_TELEGRAM_IDS = [];
+// Set a strong password-derived PBKDF2 hash here only in the private deployment
+// workspace. Never commit a populated hash to the public repository. Format:
+// pbkdf2-sha256$120000$<32-char salt hex>$<64-char derived-key hex>
+export const ADMIN_PASSWORD_HASH = '';

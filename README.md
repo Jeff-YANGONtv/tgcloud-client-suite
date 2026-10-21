@@ -16,7 +16,7 @@ npm run lint
 
 The message and callback handlers implement private-chat onboarding, pending-user review, admin authorization, campaign/channel management, daily post recording, report display/delivery and manual missing-post reminders. See [BOT_GUIDE.md](BOT_GUIDE.md) for commands and setup details.
 
-Bootstrap is secure by default: `tgcloud/lib/admin-config.js` contains an empty allowlist. Add the trusted administrator's numeric Telegram ID locally before the first deployment. Do not commit that ID to this public repository. The first person who messages the bot is never automatically promoted. Further approvals and status changes can be made by an approved admin through the bot.
+Admin access uses `/admin <password>`. The bot verifies a PBKDF2-SHA256 password hash from `tgcloud/lib/admin-config.js`; leave it empty in public commits, and configure the real hash only in the private deployment workspace. The first user to message the bot is not automatically an admin; only a successful password login grants the sender's Telegram account admin status. Use a unique password of at least 20 characters. Failed login attempts are limited in the current worker process. Password text is sent to Telegram in a private message; the handler attempts to delete the command message, but deletion is not guaranteed, so do not reuse a sensitive password. `/logout` demotes the account to a pending client; an approved admin must re-approve it for client access.
 
 The report sender records successful delivery by client, campaign and Myanmar-local date. Re-sending a report skips dates already recorded as delivered. If Telegram accepted a message but saving its delivery marker failed, a later resend could duplicate that date; delivery is therefore retryable, not exactly-once.
 
@@ -25,7 +25,7 @@ The report sender records successful delivery by client, campaign and Myanmar-lo
 1. Enable Serverless for the bot in BotFather.
 2. Revoke and replace any Telegram Bot API token or TGCloud CLI token previously exposed in chat or elsewhere. Keep both credentials out of source code and chat.
 3. Obtain the TGCloud Serverless CLI access token from BotFather. It is separate from the Telegram Bot API token. Run `npx tgcloud login` locally and enter the CLI credential only in the terminal prompt.
-4. Configure the bootstrap administrator ID in `tgcloud/lib/admin-config.js` locally. Keep this change out of commits to the public repository.
+4. Set a PBKDF2-SHA256 hash for a long, unique admin password in `tgcloud/lib/admin-config.js` in the private deployment workspace only. Never commit a populated hash to the public repository.
 5. Link/pull the target bot with the TGCloud CLI, inspect `npx tgcloud status`, then review any reported schema changes. Apply a migration only after checking the generated change set.
 6. Run `npm run deploy` to build the Mini App and push the modules/static files. Set the returned app URL as the Mini App URL in BotFather, then test onboarding and admin commands with the configured administrator.
 

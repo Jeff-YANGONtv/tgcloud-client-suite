@@ -3,11 +3,14 @@ import { and, asc, eq, gte, lte } from 'sdk/db';
 import { campaignChannels, campaigns, postRecords, reportDeliveries, users } from '../schema.js';
 import { myanmarDateKey, pruneExpiredPostRecords } from './client-data.js';
 import { saveDailyPostRecord } from './post-records.js';
-import { BOOTSTRAP_ADMIN_TELEGRAM_IDS } from './admin-config.js';
+import { ADMIN_PASSWORD_HASH } from './admin-config.js';
 
 const DAY_MS = 86_400_000;
 const MM_OFFSET_MS = (6 * 60 + 30) * 60_000;
 const MESSAGE_LIMIT = 3_700;
+const LOGIN_WINDOW_MS = 15 * 60_000;
+const LOGIN_MAX_FAILURES = 5;
+const loginFailures = new Map();
 
 function textOf(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -134,6 +137,87 @@ async function getApprovedAdmin(telegramId) {
     .get();
 }
 
+function hexBytes(value) {
+  if (!/^(?:[0-9a-f]{2})+$/i.test(value)) return null;
+  return Uint8Array.from(value.match(/.{2}/g), (byte) => Number.parseInt(byte, 16));
+}
+
+async function verifyAdminPassword(password) {
+  const [algorithm, iterationsText, saltHex, digestHex] = ADMIN_PASSWORD_HASH.split('$');
+  const iterations = Number(iterationsText);
+  const salt = hexBytes(saltHex ?? '');
+  const expected = hexBytes(digestHex ?? '');
+  if (algorithm !== 'pbkdf2-sha256' || !Number.isSafeInteger(iterations) || iterations < 100_000 || iterations > 1_000_000 || salt?.length !== 16 || expected?.length !== 32) return false;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations, hash: 'SHA-256' }, key, 256));
+  let difference = 0;
+  for (let i = 0; i < expected.length; i += 1) difference |= bits[i] ^ expected[i];
+  return difference === 0;
+}
+
+function loginLocked(telegramId, now = Date.now()) {
+  const state = loginFailures.get(telegramId);
+  if (!state) return false;
+  if (state.resetAt <= now) { loginFailures.delete(telegramId); return false; }
+  return state.count >= LOGIN_MAX_FAILURES;
+}
+
+function recordFailedLogin(telegramId, now = Date.now()) {
+  const state = loginFailures.get(telegramId);
+  if (!state || state.resetAt <= now) loginFailures.set(telegramId, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+  else state.count += 1;
+}
+
+async function loginAdmin(message, password) {
+  if (message.chat?.type !== 'private') {
+    await sendText(message.chat.id, 'Admin login ကို bot နဲ့ private chat မှာလုပ်ပါ။');
+    return;
+  }
+  if (message.message_id) {
+    try { await api.deleteMessage({ chat_id: message.chat.id, message_id: message.message_id }); }
+    catch { console.warn('Could not delete an admin password message.'); }
+  }
+  if (!password || !ADMIN_PASSWORD_HASH) {
+    await sendText(message.chat.id, ADMIN_PASSWORD_HASH ? 'ဝင်ရန် /admin <password> ဟု ပို့ပါ။' : 'Admin password ကို မသတ်မှတ်ရသေးပါ။');
+    return;
+  }
+  if (password.length < 20) {
+    recordFailedLogin(message.from.id);
+    await sendText(message.chat.id, 'Admin password သည် အနည်းဆုံး အက္ခရာ ၂၀ ရှိရပါမည်။');
+    return;
+  }
+  if (loginLocked(message.from.id)) {
+    await sendText(message.chat.id, 'စကားဝှက် မှားယွင်းမှုများသောကြောင့် ၁၅ မိနစ် ယာယီပိတ်ထားပါသည်။');
+    return;
+  }
+  let valid = false;
+  try { valid = await verifyAdminPassword(password); }
+  catch { console.error('Admin password verification failed.'); }
+  if (!valid) {
+    recordFailedLogin(message.from.id);
+    await sendText(message.chat.id, 'စကားဝှက် မှားယွင်းနေပါသည်။');
+    return;
+  }
+  loginFailures.delete(message.from.id);
+  const registered = await registerUser(message);
+  if (!registered?.user) return;
+  await db.update(users).set({
+    username: message.from.username ?? null,
+    firstName: textOf(message.from.first_name) || 'Telegram user',
+    role: 'admin',
+    status: 'approved',
+    approvedAt: registered.user.approvedAt ?? new Date(),
+  }).where(eq(users.id, registered.user.id)).run();
+  await sendText(message.chat.id, 'စကားဝှက် မှန်ကန်ပါသည်။ Admin အဖြစ် ဝင်ရောက်ပြီးပါပြီ။ /help ဖြင့် command များကို ကြည့်ပါ။');
+}
+
+async function logoutAdmin(message) {
+  const actor = await requirePrivateAdmin(message);
+  if (!actor) return;
+  await db.update(users).set({ role: 'client', status: 'pending' }).where(eq(users.id, actor.id)).run();
+  await sendText(message.chat.id, 'Admin အခွင့်အရေးမှ ထွက်ပြီးပါပြီ။ နောက်တစ်ကြိမ် admin command သုံးရန် /admin <password> ဖြင့် ပြန်ဝင်ပါ။ Client အဖြစ် အသုံးပြုရန် admin ထံမှ ပြန်လည်အတည်ပြုချက် တောင်းပါ။');
+}
+
 async function sendAdmins(text) {
   const admins = await db.select().from(users)
     .where(and(eq(users.role, 'admin'), eq(users.status, 'approved')))
@@ -150,7 +234,6 @@ async function sendAdmins(text) {
 async function registerUser(message) {
   const tgUser = message.from;
   if (!tgUser || !Number.isSafeInteger(tgUser.id) || tgUser.is_bot) return null;
-  const bootstrap = BOOTSTRAP_ADMIN_TELEGRAM_IDS.includes(tgUser.id);
   let user = await db.select().from(users).where(eq(users.telegramId, tgUser.id)).get();
   let created = false;
   const profile = {
@@ -161,19 +244,14 @@ async function registerUser(message) {
   if (!user) {
     const result = await db.insert(users).values({
       ...profile,
-      role: bootstrap ? 'admin' : 'client',
-      status: bootstrap ? 'approved' : 'pending',
-      ...(bootstrap ? { approvedAt: new Date() } : {}),
+      role: 'client',
+      status: 'pending',
     }).onConflictDoNothing({ target: users.telegramId }).run();
     created = result.rowsAffected > 0;
     user = await db.select().from(users).where(eq(users.telegramId, tgUser.id)).get();
   }
   if (!user) throw new Error('Registration could not be completed.');
-  if (bootstrap && (user.role !== 'admin' || user.status !== 'approved')) {
-    await db.update(users).set({ ...profile, role: 'admin', status: 'approved', approvedAt: user.approvedAt ?? new Date() })
-      .where(eq(users.id, user.id)).run();
-    user = await db.select().from(users).where(eq(users.id, user.id)).get();
-  } else if (!bootstrap && (user.username !== profile.username || user.firstName !== profile.firstName)) {
+  if (user.username !== profile.username || user.firstName !== profile.firstName) {
     await db.update(users).set(profile).where(eq(users.id, user.id)).run();
     user = { ...user, ...profile };
   }
@@ -207,7 +285,7 @@ async function requirePrivateAdmin(message) {
   }
   const actor = await getApprovedAdmin(message.from.id);
   if (!actor) {
-    await sendText(message.chat.id, 'ဤ command ကို အတည်ပြုထားသော admin များသာ အသုံးပြုနိုင်သည်။ /start ဖြင့် အရင် access တောင်းပါ။');
+    await sendText(message.chat.id, 'Admin command သုံးရန် /admin <password> ဟု အရင်ဝင်ပါ။');
     return null;
   }
   return actor;
@@ -218,6 +296,8 @@ async function showHelp(chatId, isAdmin = false) {
     'Client bot commands',
     '/start — စာရင်းသွင်းရန် သို့မဟုတ် access စစ်ဆေးရန်',
     '/help — အကူအညီ',
+    '/admin <password> — admin အဖြစ်ဝင်ရန်',
+    '/logout — admin အခွင့်အရေးမှထွက်ရန်',
   ];
   if (isAdmin) lines.push(
     '',
@@ -611,6 +691,8 @@ export async function handleBotMessage(message) {
     return;
   }
   try {
+    if (command.name === 'admin') { await loginAdmin(message, command.args); return; }
+    if (command.name === 'logout') { await logoutAdmin(message); return; }
     if (command.name === 'start') { await onboard(message); return; }
     if (command.name === 'help') {
       const admin = await getApprovedAdmin(message.from.id);

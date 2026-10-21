@@ -1,23 +1,25 @@
 # Telegram Bot နှင့် Daily Post Record အသုံးပြုနည်း
 
-ဤလမ်းညွှန်သည် လက်ရှိ repository code တွင် ရေးသားထားသော workflow များကို ဖော်ပြသည်။ Bot ကို production သို့ မတင်ရသေးပါ။ First-admin ID စီစဉ်ခြင်း၊ token အသစ်ပြောင်းခြင်း၊ TGCloud app ချိတ်ဆက်ခြင်း၊ schema change ပြန်လည်သုံးသပ်ခြင်းနှင့် deployment ကို သီးခြားလုပ်ဆောင်ရမည်။
+ဤလမ်းညွှန်သည် repository code ၏ လက်ရှိလုပ်ဆောင်ချက်များကို ဖော်ပြသည်။ Bot ကို production သို့ မတင်ရသေးပါ။ Password hash သတ်မှတ်ခြင်း၊ token အသစ်ထည့်ခြင်း၊ TGCloud app ချိတ်ဆက်ခြင်း၊ schema change စစ်ဆေးခြင်းနှင့် deploy လုပ်ခြင်းတို့ ကျန်ရှိနေပါသည်။
 
-## လုံခြုံသော ပထမဆုံး Admin သတ်မှတ်ခြင်း
+## Password ဖြင့် Admin ဝင်ရောက်ခြင်း
 
-`tgcloud/lib/admin-config.js` ထဲရှိ `BOOTSTRAP_ADMIN_TELEGRAM_IDS` စာရင်းသည် မူလအတိုင်း အလွတ်ဖြစ်သည်။ Bot ကို ပထမဆုံး စတင်သုံးမည့် ယုံကြည်စိတ်ချရသော admin ၏ numeric Telegram ID ကို deployment မတိုင်မီ local copy ထဲတွင် ထည့်ပါ။ Repository သည် public ဖြစ်သောကြောင့် အဆိုပါ ID ကို commit မလုပ်ပါနှင့်။ ပထမဆုံး `/start` ပို့သူကို admin အဖြစ် အလိုအလျောက် မသတ်မှတ်ပါ။ Allowlist မထည့်ထားလျှင် admin account မဖန်တီးနိုင်ဘဲ pending request များကို bot မှ approve လုပ်၍ မရနိုင်ပါ။
+`tgcloud/lib/admin-config.js` ဖိုင်ထဲရှိ `ADMIN_PASSWORD_HASH` တွင် password ၏ PBKDF2-SHA256 hash ကို private deployment workspace ၌သာ ထည့်ပါ။ Hash ပါသောဖိုင်ကို public GitHub သို့ မတင်ပါနှင့်။ အနည်းဆုံး စာလုံး ၂၀ ရှိပြီး အခြားနေရာတွင် မသုံးသော password ရွေးပါ။ `/start` လုပ်ရုံဖြင့် admin မဖြစ်ပါ။ `/admin <password>` ဖြင့် မှန်ကန်သော password ထည့်သူ၏ Telegram account ကို admin အဖြစ် သတ်မှတ်သည်။ Password များကို အကြိမ် ၅ ကြိမ်ဆက်မှားပါက ၁၅ မိနစ်ခန့် login ကို ပိတ်ထားသည်။
 
-Telegram Bot API token သို့မဟုတ် TGCloud CLI token ကို chat, log, commit, screenshot တို့တွင် မျှဝေမိပါက BotFather မှ revoke လုပ်ပြီး အသစ်ပြောင်းပါ။ Token များကို source code သို့မဟုတ် chat ထဲ မထည့်ပါနှင့်။
+ဝင်ရောက်ရန် bot ၏ private chat တွင် `/admin <password>` ဟု ပို့ပါ။ Bot သည် password ပါသော message ကို ဖျက်ရန် ကြိုးစားသော်လည်း ဖျက်နိုင်မည်ဟု အာမမခံနိုင်ပါ။ ထို့ကြောင့် အခြားအကောင့်များတွင် မသုံးသော password ကိုသာ အသုံးပြုပါ။
+
+Bot API token သို့မဟုတ် TGCloud CLI token ပေါက်ကြားခဲ့လျှင် အဟောင်းကို ပိတ်ပြီး အသစ်ထုတ်ပါ။ Token များကို source code, chat, log သို့ မထည့်ပါနှင့်။
 
 ## Onboarding နှင့် user review
 
-- `/start` — user ကို register လုပ်သည်. Allowlist ထဲရှိ user ကို approved admin အဖြစ် သတ်မှတ်ပြီး အခြားအသစ်ဝင်သူများကို pending client အဖြစ် ထည့်သည်.
+- `/start` — user ကို မှတ်ပုံတင်ပြီး client အဖြစ် အတည်ပြုရန် စောင့်ဆိုင်းစာရင်းထဲ ထည့်သည်။ Admin ဖြစ်ရန် `/admin <password>` ကို သုံးပါ။
 - `/help` — အသုံးပြုသူအတွက် command များကို ပြသည်. Admin ဖြစ်ပါက admin command များကိုလည်း ပြသည်.
 - `/users` — pending request များကို တစ်ခုချင်းကြည့်နိုင်သည့် inline card ဖော်ပြသည်. Approve/Reject ခလုတ်များဖြင့် ဆုံးဖြတ်နိုင်သည်.
 - `/user <Telegram ID သို့မဟုတ် DB ID>` — user တစ်ဦး၏ profile/status ကြည့်သည်.
 - `/approve <Telegram ID သို့မဟုတ် DB ID>` — client ကို approve သို့မဟုတ် ယခင် rejected status မှ ပြန်လည်ဖွင့်သည်.
 - `/reject <Telegram ID သို့မဟုတ် DB ID>` — client access ကို ပိတ်သည်.
 
-Admin-only command နှင့် callback များသည် private chat နှင့် approved admin status ကို စစ်ဆေးသည်။ Bot command များကို group chat မှ မလုပ်ဆောင်ပါ။
+Admin command နှင့် callback များကို private chat မှ approved admin များသာ အသုံးပြုနိုင်သည်။ `/logout` လုပ်လျှင် admin အခွင့်အရေးဖယ်ရှားပြီး user ကို `pending` အခြေအနေသို့ ပြန်ထားသည်။ Client အဖြစ် အသုံးပြုလိုပါက admin ထံမှ ထပ်မံအတည်ပြုချက် တောင်းရမည်။ Group chat မှ admin command များ အသုံးပြု၍မရပါ။
 
 ## Client တစ်ဦး/အားလုံးထံ စာပို့ခြင်း
 
@@ -59,4 +61,4 @@ npm run build
 npm run lint
 ```
 
-Deploy မတိုင်မီ bootstrap admin ID ကို local configuration ထဲတွင် ထည့်ပါ။ Chat သို့မဟုတ် အခြားနေရာတွင် ဖော်ထုတ်မိခဲ့သော token များကို BotFather မှ revoke လုပ်ပြီး အသစ်ထုတ်ပါ။ TGCloud bot app ကို link/pull လုပ်ပြီး `npx tgcloud status` နှင့် schema diff ကို စစ်ဆေးပါ။ Migration ရှိလျှင် diff ကို သေချာစစ်ပြီးမှ run ပါ။
+Deploy မတိုင်မီ အနည်းဆုံး စာလုံး ၂၀ ပါသော admin password ၏ hash ကို private local configuration ထဲတွင်သာ ထည့်ပါ။ ပေါက်ကြားခဲ့သော token များကို ပိတ်ပြီး အသစ်ထုတ်ပါ။ TGCloud bot app ကို link/pull လုပ်ပြီး `npx tgcloud status` နှင့် schema diff ကို စစ်ဆေးပါ။ Migration ရှိလျှင် အပြောင်းအလဲစာရင်းကို စစ်ပြီးမှ run ပါ။
