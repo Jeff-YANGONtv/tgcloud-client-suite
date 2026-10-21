@@ -1,25 +1,25 @@
 # Telegram Bot နှင့် Daily Post Record အသုံးပြုနည်း
 
-ဤလမ်းညွှန်သည် repository code ၏ လက်ရှိလုပ်ဆောင်ချက်များကို ဖော်ပြသည်။ Bot ကို production သို့ မတင်ရသေးပါ။ Password hash သတ်မှတ်ခြင်း၊ token အသစ်ထည့်ခြင်း၊ TGCloud app ချိတ်ဆက်ခြင်း၊ schema change စစ်ဆေးခြင်းနှင့် deploy လုပ်ခြင်းတို့ ကျန်ရှိနေပါသည်။
+ဤလမ်းညွှန်သည် repository code ၏ လက်ရှိလုပ်ဆောင်ချက်များကို ဖော်ပြသည်။ Bot ကို production သို့ မတင်ရသေးပါ။ Admin Telegram ID များကို သီးသန့်တည်နေရာတွင် သတ်မှတ်ခြင်း၊ token အသစ်ထည့်ခြင်း၊ TGCloud app ချိတ်ဆက်ခြင်း၊ schema change စစ်ဆေးခြင်းနှင့် deploy လုပ်ခြင်းတို့ ကျန်ရှိနေပါသည်။
 
-## Password ဖြင့် Admin ဝင်ရောက်ခြင်း
+## Admin Telegram ID သတ်မှတ်ခြင်း
 
-`tgcloud/lib/admin-config.js` ဖိုင်ထဲရှိ `ADMIN_PASSWORD_HASH` တွင် password ၏ PBKDF2-SHA256 hash ကို private deployment workspace ၌သာ ထည့်ပါ။ Hash ပါသောဖိုင်ကို public GitHub သို့ မတင်ပါနှင့်။ အနည်းဆုံး စာလုံး ၂၀ ရှိပြီး အခြားနေရာတွင် မသုံးသော password ရွေးပါ။ `/start` လုပ်ရုံဖြင့် admin မဖြစ်ပါ။ `/admin <password>` ဖြင့် မှန်ကန်သော password ထည့်သူ၏ Telegram account ကို admin အဖြစ် သတ်မှတ်သည်။ Password များကို အကြိမ် ၅ ကြိမ်ဆက်မှားပါက ၁၅ မိနစ်ခန့် login ကို ပိတ်ထားသည်။
+`tgcloud/lib/admin-config.js` ထဲရှိ `ADMIN_TELEGRAM_IDS` စာရင်းကို အသုံးပြုသည်။ Public GitHub ဗားရှင်းတွင် စာရင်းကို အလွတ်ထားပါ။ Admin လုပ်မည့် Telegram user ID များကို private deployment workspace ထဲတွင်သာ ထည့်ပြီး public repo သို့ commit မလုပ်ပါနှင့်။ စာရင်းထဲရှိသူ bot ကို `/start` လုပ်လျှင် approved admin ဖြစ်သည်။ အခြားသူများသည် pending client အဖြစ်သာ စာရင်းသွင်းမည်။
 
-ဝင်ရောက်ရန် bot ၏ private chat တွင် `/admin <password>` ဟု ပို့ပါ။ Bot သည် password ပါသော message ကို ဖျက်ရန် ကြိုးစားသော်လည်း ဖျက်နိုင်မည်ဟု အာမမခံနိုင်ပါ။ ထို့ကြောင့် အခြားအကောင့်များတွင် မသုံးသော password ကိုသာ အသုံးပြုပါ။
+ID သည် Telegram account ကို ခွဲခြားသတ်မှတ်ရန် အသုံးပြုသော နံပါတ်ဖြစ်သည်။ Admin command များကို bot ၏ private chat မှသာ အသုံးပြုနိုင်သည်။ Password မလိုပါ။
 
 Bot API token သို့မဟုတ် TGCloud CLI token ပေါက်ကြားခဲ့လျှင် အဟောင်းကို ပိတ်ပြီး အသစ်ထုတ်ပါ။ Token များကို source code, chat, log သို့ မထည့်ပါနှင့်။
 
 ## Onboarding နှင့် user review
 
-- `/start` — user ကို မှတ်ပုံတင်ပြီး client အဖြစ် အတည်ပြုရန် စောင့်ဆိုင်းစာရင်းထဲ ထည့်သည်။ Admin ဖြစ်ရန် `/admin <password>` ကို သုံးပါ။
+- `/start` — user ကို မှတ်ပုံတင်ပြီး client အဖြစ် အတည်ပြုရန် စောင့်ဆိုင်းစာရင်းထဲ ထည့်သည်။ Admin ID စာရင်းထဲရှိသူသည် `/start` လုပ်ခြင်းဖြင့် admin ဖြစ်သည်။
 - `/help` — အသုံးပြုသူအတွက် command များကို ပြသည်. Admin ဖြစ်ပါက admin command များကိုလည်း ပြသည်.
 - `/users` — pending request များကို တစ်ခုချင်းကြည့်နိုင်သည့် inline card ဖော်ပြသည်. Approve/Reject ခလုတ်များဖြင့် ဆုံးဖြတ်နိုင်သည်.
 - `/user <Telegram ID သို့မဟုတ် DB ID>` — user တစ်ဦး၏ profile/status ကြည့်သည်.
 - `/approve <Telegram ID သို့မဟုတ် DB ID>` — client ကို approve သို့မဟုတ် ယခင် rejected status မှ ပြန်လည်ဖွင့်သည်.
 - `/reject <Telegram ID သို့မဟုတ် DB ID>` — client access ကို ပိတ်သည်.
 
-Admin command နှင့် callback များကို private chat မှ approved admin များသာ အသုံးပြုနိုင်သည်။ `/logout` လုပ်လျှင် admin အခွင့်အရေးဖယ်ရှားပြီး user ကို `pending` အခြေအနေသို့ ပြန်ထားသည်။ Client အဖြစ် အသုံးပြုလိုပါက admin ထံမှ ထပ်မံအတည်ပြုချက် တောင်းရမည်။ Group chat မှ admin command များ အသုံးပြု၍မရပါ။
+Admin command နှင့် callback များကို private chat မှ အတည်ပြုထားသော admin များသာ အသုံးပြုနိုင်သည်။ Group chat မှ admin command များ အသုံးပြု၍မရပါ။
 
 ## Client တစ်ဦး/အားလုံးထံ စာပို့ခြင်း
 
@@ -61,4 +61,4 @@ npm run build
 npm run lint
 ```
 
-Deploy မတိုင်မီ အနည်းဆုံး စာလုံး ၂၀ ပါသော admin password ၏ hash ကို private local configuration ထဲတွင်သာ ထည့်ပါ။ ပေါက်ကြားခဲ့သော token များကို ပိတ်ပြီး အသစ်ထုတ်ပါ။ TGCloud bot app ကို link/pull လုပ်ပြီး `npx tgcloud status` နှင့် schema diff ကို စစ်ဆေးပါ။ Migration ရှိလျှင် အပြောင်းအလဲစာရင်းကို စစ်ပြီးမှ run ပါ။
+Deploy မတိုင်မီ admin Telegram ID များကို private local configuration ထဲတွင်သာ ထည့်ပါ။ Public GitHub ထဲ မတင်ပါနှင့်။ ပေါက်ကြားခဲ့သော token များကို ပိတ်ပြီး အသစ်ထုတ်ပါ။ TGCloud bot app ကို link/pull လုပ်ပြီး `npx tgcloud status` နှင့် schema diff ကို စစ်ဆေးပါ။ Migration ရှိလျှင် အပြောင်းအလဲစာရင်းကို စစ်ပြီးမှ run ပါ။
